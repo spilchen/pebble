@@ -277,6 +277,11 @@ type mergingIter struct {
 
 	// Used in some tests to disable the random disabling of seek optimizations.
 	forceEnableSeekOpt bool
+
+	// skipRangeDelChecks, when true, bypasses range deletion checking in
+	// isNextEntryDeleted and isPrevEntryDeleted. This is set automatically
+	// when all levels have nil rangeDelIter (no range deletions exist).
+	skipRangeDelChecks bool
 }
 
 // mergingIter implements the base.InternalIterator interface.
@@ -601,6 +606,10 @@ func (m *mergingIter) nextEntry(l *mergingIterLevel, succKey []byte) error {
 // clearing the heap if the deleted key(s) extend beyond the iteration prefix
 // during prefix-iteration mode.
 func (m *mergingIter) isNextEntryDeleted(item *mergingIterLevel) (bool, error) {
+	// If all levels have no range deletions, skip the check entirely.
+	if m.skipRangeDelChecks {
+		return false, nil
+	}
 	// Look for a range deletion tombstone containing item.iterKV at higher
 	// levels (level < item.index). If we find such a range tombstone we know
 	// it deletes the key in the current level. Also look for a range
@@ -811,6 +820,10 @@ func (m *mergingIter) prevEntry(l *mergingIterLevel) error {
 // moves the iterators backward as needed and returns true, else it returns false. item is the top
 // item in the heap.
 func (m *mergingIter) isPrevEntryDeleted(item *mergingIterLevel) (bool, error) {
+	// If all levels have no range deletions, skip the check entirely.
+	if m.skipRangeDelChecks {
+		return false, nil
+	}
 	// Look for a range deletion tombstone containing item.iterKV at higher
 	// levels (level < item.index). If we find such a range tombstone we know
 	// it deletes the key in the current level. Also look for a range

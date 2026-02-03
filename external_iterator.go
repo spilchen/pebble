@@ -6,6 +6,7 @@ package pebble
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble/internal/base"
@@ -209,7 +210,21 @@ func createExternalPointIter(
 		}
 	}
 
+	// Auto-detect if all levels have no range deletions. If so, we can skip
+	// range deletion checking entirely during iteration.
+	allNilRangeDel := true
+	for i := range mlevels {
+		if mlevels[i].rangeDelIter != nil {
+			allNilRangeDel = false
+			break
+		}
+	}
+
 	it.alloc.merging.init(&it.opts, &it.stats.InternalStats, it.comparer.Compare, it.comparer.Split, mlevels...)
+	if allNilRangeDel {
+		it.alloc.merging.skipRangeDelChecks = true
+		fmt.Printf("[pebble] skipRangeDelChecks enabled: levels=%d\n", len(mlevels))
+	}
 	it.alloc.merging.snapshot = base.SeqNumMax
 	if len(mlevels) <= cap(it.alloc.levelsPositioned) {
 		it.alloc.merging.levelsPositioned = it.alloc.levelsPositioned[:len(mlevels)]
