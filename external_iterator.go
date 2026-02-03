@@ -7,6 +7,7 @@ package pebble
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble/internal/base"
@@ -16,6 +17,9 @@ import (
 	"github.com/cockroachdb/pebble/sstable"
 	"github.com/cockroachdb/pebble/sstable/block"
 )
+
+// skipRangeDelChecksCounter tracks how many times we've enabled the optimization.
+var skipRangeDelChecksCounter atomic.Uint64
 
 // NewExternalIter takes an input 2d array of sstable files which may overlap
 // across subarrays but not within a subarray (at least as far as points are
@@ -223,7 +227,11 @@ func createExternalPointIter(
 	it.alloc.merging.init(&it.opts, &it.stats.InternalStats, it.comparer.Compare, it.comparer.Split, mlevels...)
 	if allNilRangeDel {
 		it.alloc.merging.skipRangeDelChecks = true
-		fmt.Printf("[pebble] skipRangeDelChecks enabled: levels=%d\n", len(mlevels))
+		// Log every 1000 occurrences to avoid log spam.
+		count := skipRangeDelChecksCounter.Add(1)
+		if count%1000 == 1 {
+			fmt.Printf("[pebble] skipRangeDelChecks enabled: count=%d, levels=%d\n", count, len(mlevels))
+		}
 	}
 	it.alloc.merging.snapshot = base.SeqNumMax
 	if len(mlevels) <= cap(it.alloc.levelsPositioned) {
