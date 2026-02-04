@@ -18,6 +18,10 @@ import (
 	"github.com/cockroachdb/pebble/sstable/block"
 )
 
+func init() {
+	fmt.Println("=== CUSTOM PEBBLE: skip-range-del-checks branch ===")
+}
+
 // skipRangeDelChecksCounter tracks how many times we've enabled the optimization.
 var skipRangeDelChecksCounter atomic.Uint64
 
